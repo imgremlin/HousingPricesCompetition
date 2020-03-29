@@ -133,41 +133,53 @@ lgbm = LGBMRegressor(objective='regression', verbose=-1,
 #results = cross_val_score(lgbm, X, y, cv=kfold, scoring='r2')
 #print(f"res kfold: {results.mean():.5f}")
 
-from sklearn.model_selection import train_test_split
-
-#train split test with random state!=0 for 
-X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                        test_size = 0.25, random_state = 5)
-
 #custom grid search of coefficients for ensemble learning
 '''
 from sklearn.metrics import r2_score
 
-#print(r2_score(y_test,lgbm_pred).round(4))
-
 xgb_tabl=[]
 catb_tabl=[]
 lgbm_tabl=[]
-res_tabl=[]
 
 for xgb_i in range(11):
     for cat_i in range(11-xgb_i):
-        
         lgbm_i = 10 - xgb_i - cat_i
-        
         xgb_tabl.append(xgb_i)
         catb_tabl.append(cat_i)
         lgbm_tabl.append(lgbm_i)
-        y_pred = 0.1 * (xgb_i*xgb_pred + cat_i*catb_pred + lgbm_i*lgbm_pred)
-        res_tabl.append(r2_score(y_test,y_pred).round(6))
-        #print(f"{number}. xgb={xgb/10} cat={cat/10} lgbm={lgbm/10}")
 
 dict_table = {'xgb': xgb_tabl, 'lgbm': lgbm_tabl,
-              'catb': catb_tabl, 'res':res_tabl}  
+              'catb': catb_tabl}
 
 df = pd.DataFrame(dict_table)
-df.sort_values(by="res", ascending=False)
+df_res = pd.DataFrame() 
+from sklearn.model_selection import train_test_split
 
+#custom cross validation, "num_iterations" - number of validations
+num_iterations = 3
+
+for j in range(num_iterations):
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                test_size = 0.25, random_state = j)
+    xgb.fit(X_train,y_train)
+    catb.fit(X_train,y_train)
+    lgbm.fit(X_train,y_train)
+    
+    xgb_pred=xgb.predict(X_test)
+    lgbm_pred=lgbm.predict(X_test)
+    catb_pred=catb.predict(X_test)
+    
+    df_res[f"res_{j}"]=np.nan
+    time_list=[]
+    for i in range(len(df.index)):
+        kek=r2_score(y_test,(0.1*(df['xgb'][i]*xgb_pred+df['catb'][i]*catb_pred+df['lgbm'][i]*lgbm_pred)))
+        df_res.loc[i, f"res_{j}"]=kek.round(6)
+
+df_res["avg_res"] = df_res.mean(axis=1)
+df=df.join(df_res)
+df=df.sort_values(by="avg_res", ascending=False)
+print(df.head())
 df.to_csv('result_table.csv', index=False)
 '''
 
@@ -192,4 +204,4 @@ output_pred=np.exp(fit_pred(X,y,test,0.2,0.1,0.7))
 
 #making submission
 output = pd.DataFrame({'Id': test_raw.index, 'SalePrice': output_pred})
-output.to_csv('submission.csv', index=False)
+#output.to_csv('submission.csv', index=False)
